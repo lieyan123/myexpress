@@ -5,23 +5,29 @@ const sql = require('../db/mssql-db')
 /* GET home page. */
 
 router.post('/login', async function (req, res, next) {
-  console.log(req)
   const name = req.body.userName
   const pwd = req.body.password
-  await sql.query(`select * from UserTest where name='${name}'`, function (error, recordsets, affected) {
+  const session = req.session;
+  await sql.query(`select * from User_Access_View where name='${name}'`, function (error, recordsets, affected) {
     let jso = recordsets[0][0]
     if (jso == null || jso == undefined || jso['state'] == '禁用') {
-      res.send({"token":null})
+      res.send({ "token": null })
     }
     else {
       let password = jso['password']
       if (password == pwd) {
+        let access = [];
+        recordsets[0].forEach(element => {
+          access.push(element.access)
+        })
+        let user = { 'name': name, 'pwd': pwd ,'access':access}
+        session.user = user;
         res.send({
           "code": 200,
           "token": `${name}`
         })
-      }else{
-        res.send({"token":null})
+      } else {
+        res.send({ "token": null })
       }
     }
   })
@@ -37,7 +43,7 @@ router.post('/register', async function (req, res, next) {
 
 router.get('/gettoken', async function (req, res, next) {
   let token = req.query.token
-  if (token != "null" && token != '' && token!=undefined) {
+  if (token != "null" && token != '' && token != undefined) {
     await sql.query(`select * from User_Access_View where name='${token}'`, function (error, recordsets, affected) {
       let data = recordsets[0]
       let access = [];
@@ -53,12 +59,16 @@ router.get('/gettoken', async function (req, res, next) {
       })
     })
   }
+  else {
+    res.send(null)
+  }
 
 
 })
 
 router.post('/logout', function (req, res, next) {
   let token = null
+  req.session.user = null
   res.send(token)
 })
 
